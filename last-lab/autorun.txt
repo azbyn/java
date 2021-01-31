@@ -1,0 +1,101 @@
+# it's not python, but at least it's colored nicely
+# vim: set ft=python:
+
+fact = \a.a < 1 ? 1 : (a*(fact (a-1)))
+
+pow2 = \a.\b. b <= 0 ? 1 : (b == 1 ? a : ((pow2 a (b-1)) * a))
+
+#the great part is that we get lexicographical ordering and
+# equality comparison (ie. == and !=) for free
+
+#we should use 16 bits, but this is nicer to debug
+scons = \c.\s. s << 8 | c
+shead = \s.s & 255
+stail = \s.s >> 8
+snil = 0
+
+
+hello = scons 72 (scons 101 (scons 108 (scons 108 111)))
+world = scons 87 (scons 111 (scons 114 (scons 108 (scons 100 10))))
+
+id = \x.x
+print = \s.s == snil ? id : (putc (shead s) (print (stail s)))
+#10 = '\n'
+println = \s.print s (putc 10)
+
+#48 = '0'
+tostrImpl = \n.\s.n <= 0 ? s : (tostrImpl (n/10) (scons (48 + n%10) s))
+
+#45 = '-'
+tostr = \n.(n < 0 ? (tostrImpl -n 45) : (n == 0 ? 48 : (tostrImpl n 0)))
+
+# way more inefficient that adding this as a builtin, but fun
+#(we could add byteCount as a function)
+strlenImpl = \s.\res. s == 0 ? res : (strlenImpl (stail s) (res+1))
+strlen = \s.strlenImpl s 0
+
+sappend = \s.\c.s | (c << 8 * (strlen s))
+
+strcat = \a.\b.(b << 8*(strlen a)) | a
+
+# '0' or ('A'-10)
+tohexChar = \n. ((n< 10) ? 48 : 55) + n
+# 16 = 2^4
+tohexImpl = \n.\s.n <= 0 ? s : (tohexImpl (n>>4) (scons (tohexChar (n&15)) s))
+tohex = \n.(n < 0 ? (tohexImpl -n 45) : (n == 0 ? 48 : (tohexImpl n 0)))
+
+pair   = \x.\y.\z.z x y
+first  = \p.p (\x.\y.x)
+second = \p.p (\x.\y.y)
+
+isdigit = \n. n >= 48 && n <= 57
+
+#returns a pair of the resulting string and the remaining string:
+# (num, remaining)
+stoiImpl = \s.\res.(\c.(isdigit c) ? (stoiImpl (stail s) (res * 10 +(c-48))) : (pair res s)) (shead s)
+stoi = \s.stoiImpl s 0
+
+#the really fun part: a calculator (or a very simple version of one)
+
+# transforms a string of shape 'a+b' - op is only a single char for the moment -
+# into (((a, b), op), rest)
+
+#let separate = \s.
+#    let a, s2 = stoi s
+#    let op = shead s2
+#    let b, rest = stoi (stail s2)
+#    return (((a, b), op), rest)
+
+separateGetB = \op.\a.\s.
+    (stoi s) (\b.\rest. pair (pair (pair a b) op) rest)
+separate = \s. (stoi s) (\a.\s2.separateGetB (shead s2) a (stail s2))
+
+#let eval = \((a, b), op).
+#    if op == '+': return a+b      # '+' == 43
+#    elif op == '-': return a-b    # '-' == 45
+#    else: return id
+eval = \pair.pair (\ab.\op.
+        ab (\a.\b.op == 43? a+b : (op == 45 ? a-b : id)))
+
+
+expr = 808529204 #'4-10'
+exprs = separate expr
+eval (first exprs)
+
+nil   = pair 1 0
+isnil = first
+cons  = \h.\t. pair 0 (pair h t)
+head  = \z.first (second z)
+tail  = \z.second (second z)
+
+tolistImpl = \s.\res. s == 0 ? res : (tolistImpl (stail s) (cons (shead s) res))
+tolist     = \s.tolistImpl s nil
+
+#tostr
+
+# rangeImpl = \a.\b.\res.a < b ? rangeImpl (a+1) b (cons a res) : res
+# range = \a.\b.rangeImpl a b nil 
+
+apply = \f.\l.l (\h.\t. (cons (f h) (apply t)))
+
+println (strcat hello (scons 32 world))
